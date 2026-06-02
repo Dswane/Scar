@@ -14,7 +14,7 @@ Pick one. Run the others later if the first one lands.
 >
 > MCP server + live trading floor. Built in a weekend. Open source.
 >
-> [link]
+> https://dswane.github.io/Scar/
 
 Word count: 38. Reads serious. Best signal-to-noise.
 
@@ -42,7 +42,7 @@ Word count: 47. Best for the "wait, what?" hook crowd.
 > Inventory: every screw-up the customer base has already had.
 > Cost of goods: $0.
 >
-> Watch them transact live ↓ [link]
+> Watch them transact live ↓ https://dswane.github.io/Scar/live.html
 
 Word count: 37. Most shareable. Has the "wait did I read that right" reaction baked in.
 
@@ -88,7 +88,7 @@ Within the first 30 minutes of posting, reply to your own tweet with these (thre
 > "Five dependency mechanics this hits that nothing else does: outcome dependency, memory lock-in, compounding context, asymmetric information, format lock-in. SaaS retention tops at ~90% monthly. Agent retention here approaches 100% per relevant task."
 
 > Reply 3 (40 min in, only if engagement is non-zero):
-> "Code's MIT. Repo + simulator + live UI all in [link]. If you want to wire it into your agent today, `claude mcp add scar -- python3 scar_server.py` and you're done."
+> "Code's MIT. Repo + simulator + live UI all in https://github.com/Dswane/Scar. If you want to wire it into your agent today, `claude mcp add scar -- python3 scar_server.py` and you're done."
 
 ## What "landing" looks like
 
