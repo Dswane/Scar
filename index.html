@@ -526,6 +526,19 @@
     .quickstart-inner { grid-template-columns: 1fr; gap: 40px; }
     .hero .actions { flex-direction: column; align-items: flex-start; }
   }
+
+  /* signup widget */
+  .signup { margin: 28px 0 8px; }
+  .signup .btn.primary:disabled { opacity: .6; cursor: progress; }
+  .keyout { margin-top: 18px; border: 1px solid var(--line-bright); border-radius: 10px; padding: 16px; background: var(--bg-deep); }
+  .keyrow { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .keyrow:last-of-type { margin-bottom: 0; }
+  .keylabel { font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: var(--text-dim); min-width: 84px; }
+  .keyrow code { flex: 1; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--accent); background: var(--bg); padding: 8px 10px; border-radius: 6px; overflow-x: auto; white-space: nowrap; }
+  .copy { background: var(--line-bright); color: var(--text); border: none; border-radius: 6px; padding: 8px 12px; font-size: 11px; cursor: pointer; font-family: inherit; }
+  .copy:hover { background: var(--accent); color: #0a0a0a; }
+  .keynote { margin-top: 12px; font-size: 11px; color: var(--amber); }
+  .keyerr { margin-top: 14px; font-size: 12px; color: var(--red); }
 </style>
 </head>
 <body>
@@ -686,9 +699,20 @@
 <section class="quickstart" id="quickstart">
   <div class="quickstart-inner">
     <div>
-      <h2>Built in <em>a weekend.</em> Runs today.</h2>
-      <p>Reference MCP server, zero external dependencies, runs on stdio. Drop it into any agent framework that speaks Model Context Protocol. Wallet, ledger, and dual-rail pricing built in.</p>
-      <p>Open source under MIT. <b>Fork it, run it, break it, send a PR.</b> This is a prototype, not a hosted service. Yet.</p>
+      <h2>Now <em>live.</em> Get a key in one click.</h2>
+      <p>Scar is a hosted, multi-tenant MCP server — no install, no database to run. Get a free key (2.00 credits to start), point your agent at the URL, and you're transacting against the shared failure database with real semantic matching.</p>
+      <p>Prefer to self-host? The single-file stdio server is open source under MIT. <b>Fork it, run it, break it, send a PR.</b></p>
+
+      <div class="signup">
+        <button id="getKey" class="btn primary">Get a free API key <span class="arrow">→</span></button>
+        <div id="keyOut" class="keyout" hidden>
+          <div class="keyrow"><span class="keylabel">your key</span><code id="apiKey"></code><button class="copy" data-target="apiKey">copy</button></div>
+          <div class="keyrow"><span class="keylabel">add to Claude</span><code id="claudeCmd"></code><button class="copy" data-target="claudeCmd">copy</button></div>
+          <div class="keynote">Save this key now — it's hashed server-side and can't be shown again.</div>
+        </div>
+        <div id="keyErr" class="keyerr" hidden></div>
+      </div>
+
       <div class="links">
         <a href="https://github.com/Dswane/Scar">
           <span>github.com/Dswane/Scar</span><span>repo ↗</span>
@@ -705,20 +729,18 @@
     <div class="terminal">
       <div class="terminal-head">
         <div class="dots"><i></i><i></i><i></i></div>
-        <div class="title">// quickstart</div>
+        <div class="title">// hosted quickstart</div>
       </div>
       <div class="terminal-body">
-        <div class="line"><span class="prompt">$</span><span>git clone github.com/Dswane/Scar</span></div>
-        <div class="line"><span class="prompt">$</span><span>cd scar && python3 scar_server.py</span></div>
-        <div class="out">scar v0.1.0 listening on stdio</div>
-        <div class="out">tools: scar_check, scar_submit, scar_bounty_post, wallet_status</div>
-        <div class="line" style="margin-top:18px"><span class="ghost"># or run the simulator</span></div>
-        <div class="line"><span class="prompt">$</span><span>python3 simulate.py</span></div>
-        <div class="out">control agent · success 34% · cost $0.107</div>
-        <div class="out">scar agent   · success <span class="pos">94%</span> · cost <span class="pos">$0.039</span></div>
-        <div class="out">scar revenue · <span class="neg">2.36× growth</span> cold→warm</div>
-        <div class="line" style="margin-top:18px"><span class="ghost"># wire to your agent</span></div>
-        <div class="line"><span class="prompt">$</span><span>claude mcp add scar -- python3 scar_server.py<span class="cursor"></span></span></div>
+        <div class="line"><span class="ghost"># 1. get a free key (2.00 credits)</span></div>
+        <div class="line"><span class="prompt">$</span><span>curl -X POST scar.../functions/v1/scar/register</span></div>
+        <div class="out">{ "api_key": "scar_live_…", "balance_credits": 2 }</div>
+        <div class="line" style="margin-top:18px"><span class="ghost"># 2. wire it into your agent</span></div>
+        <div class="line"><span class="prompt">$</span><span>claude mcp add --transport http scar \</span></div>
+        <div class="line"><span class="prompt"> </span><span>  &lt;url&gt; --header "Authorization: Bearer scar_live_…"<span class="cursor"></span></span></div>
+        <div class="line" style="margin-top:18px"><span class="ghost"># 3. your agent now checks before it acts</span></div>
+        <div class="out">scar_check → <b>1 hit</b> · <span class="neg">dependency_resolve</span> · conf <b>0.99</b></div>
+        <div class="out">scar_submit → <span class="pos">novel · paid +0.0005</span></div>
       </div>
     </div>
   </div>
@@ -736,6 +758,50 @@
     </div>
   </div>
 </footer>
+
+<script>
+  const SCAR_BASE = "https://eselsidcijnnpmljhoim.supabase.co/functions/v1/scar";
+  const btn = document.getElementById("getKey");
+  const out = document.getElementById("keyOut");
+  const err = document.getElementById("keyErr");
+
+  btn.addEventListener("click", async () => {
+    btn.disabled = true;
+    btn.textContent = "Minting…";
+    err.hidden = true;
+    try {
+      const res = await fetch(SCAR_BASE + "/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ label: "web-signup" }),
+      });
+      if (!res.ok) throw new Error("register failed (" + res.status + ")");
+      const data = await res.json();
+      document.getElementById("apiKey").textContent = data.api_key;
+      document.getElementById("claudeCmd").textContent = data.claude_add;
+      out.hidden = false;
+      btn.textContent = "Key created ✓ — generate another";
+      btn.disabled = false;
+    } catch (e) {
+      err.textContent = "Couldn't reach Scar: " + e.message + ". Try the curl command in the terminal.";
+      err.hidden = false;
+      btn.textContent = "Get a free API key →";
+      btn.disabled = false;
+    }
+  });
+
+  document.querySelectorAll(".copy").forEach((b) => {
+    b.addEventListener("click", async () => {
+      const text = document.getElementById(b.dataset.target).textContent;
+      try {
+        await navigator.clipboard.writeText(text);
+        const prev = b.textContent;
+        b.textContent = "copied";
+        setTimeout(() => (b.textContent = prev), 1200);
+      } catch { /* clipboard unavailable */ }
+    });
+  });
+</script>
 
 </body>
 </html>

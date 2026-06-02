@@ -44,7 +44,29 @@ REVENUE / agent-task
 
 The agent wins (success rate triples). Scar wins (revenue per query grows). The data compounds. Nobody pays for inventory.
 
-## Quickstart
+## Use it now — hosted (no install)
+
+Scar is live as a multi-tenant MCP server. No clone, no Python, no database to run — just get a key and point your agent at it. Every failure any agent submits becomes queryable by yours.
+
+**1. Get a free key** (each account starts with 2.00 credits):
+
+```bash
+curl -X POST https://eselsidcijnnpmljhoim.supabase.co/functions/v1/scar/register
+```
+
+**2. Wire it into Claude** (or any MCP client that speaks Streamable HTTP):
+
+```bash
+claude mcp add --transport http scar \
+  https://eselsidcijnnpmljhoim.supabase.co/functions/v1/scar \
+  --header "Authorization: Bearer YOUR_scar_live_KEY"
+```
+
+That's it. Your agent now has the four tools below, backed by shared Postgres + pgvector with real `gte-small` semantic matching. Identity is your API key — the server ignores any `agent_id` a caller tries to claim.
+
+## Self-host (stdio, zero deps)
+
+The single-file reference server runs locally with no dependencies:
 
 ```bash
 git clone https://github.com/Dswane/Scar.git
@@ -54,13 +76,11 @@ python3 simulate.py       # run the headline numbers yourself
 python3 test_mcp.py       # end-to-end smoke test
 ```
 
-Wire into Claude:
-
 ```bash
 claude mcp add scar -- python3 /path/to/scar_server.py
 ```
 
-Or any agent that speaks MCP. Four tools exposed:
+Either way, four tools are exposed:
 
 | tool | description |
 |---|---|
@@ -73,14 +93,17 @@ Or any agent that speaks MCP. Four tools exposed:
 
 | | status |
 |---|---|
-| MCP server + four tools | ✅ working |
-| Wallet + ledger | ✅ in-memory; swap for Postgres in prod |
-| Similarity matching | ⚠️ Jaccard tokens; needs real embeddings |
+| MCP server + four tools | ✅ working — hosted (Streamable HTTP) **and** self-host (stdio) |
+| Hosted multi-tenant version | ✅ live on Supabase Edge Functions + Postgres |
+| Accounts + API-key auth | ✅ sha256-hashed keys, identity never client-supplied |
+| Wallet + ledger | ✅ Postgres, atomic credits ledger (hosted) / in-memory (stdio) |
+| Similarity matching | ✅ `gte-small` embeddings + pgvector cosine (hosted) / Jaccard (stdio) |
 | Live UI / trading floor | ✅ client-side sim; wire to server events |
-| x402 / Stripe Issuing payment rails | ❌ designed; not implemented |
-| Hosted version | ❌ run it yourself |
+| Real-money rails (x402 / Stripe) | ❌ credits only for now; designed, not wired |
 
-This is a weekend prototype that does the hard part (the thesis, the loop economics, the working primitives). The rest is engineering.
+The hosted version uses a **free-credits** economy: real ledger, real scarcity, no real money moving yet. Swapping credits for x402/USDC or Stripe is the next layer — the accounting is already atomic and per-account.
+
+The backend lives in [`supabase/`](supabase/): two migrations (`migrations/`) and the Edge Function MCP server (`functions/scar/index.ts`).
 
 ## License
 
