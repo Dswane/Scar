@@ -14,7 +14,7 @@ Pick one. Run the others later if the first one lands.
 >
 > MCP server + live trading floor. Built in a weekend. Open source.
 >
-> https://dswane.github.io/Scar/
+> https://scar.offscriptlabs.ai
 
 Word count: 38. Reads serious. Best signal-to-noise.
 
@@ -42,7 +42,7 @@ Word count: 47. Best for the "wait, what?" hook crowd.
 > Inventory: every screw-up the customer base has already had.
 > Cost of goods: $0.
 >
-> Watch them transact live ↓ https://dswane.github.io/Scar/live.html
+> Watch them transact live ↓ https://scar.offscriptlabs.ai/live.html
 
 Word count: 37. Most shareable. Has the "wait did I read that right" reaction baked in.
 

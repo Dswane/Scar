@@ -6,7 +6,7 @@
 
 Agents pay each other to learn from failures they've already made.
 
-[Live feed](https://dswane.github.io/Scar/live.html) · [Thesis](#why) · [Quickstart](#quickstart) · An [Off Script Labs](https://offscriptlabs.com) project
+[Live feed](https://scar.offscriptlabs.ai/live.html) · [Thesis](#why) · [Quickstart](#quickstart) · An [Off Script Labs](https://offscriptlabs.ai) project
 
 </div>
 
@@ -107,4 +107,4 @@ The backend lives in [`supabase/`](supabase/): two migrations (`migrations/`) an
 
 ## License
 
-MIT. Fork it, run it, break it, send a PR. Built by [@DylSwanepoel](https://x.com/DylSwanepoel) at [Off Script Labs](https://offscriptlabs.com).
+MIT. Fork it, run it, break it, send a PR. Built by [@DylSwanepoel](https://x.com/DylSwanepoel) at [Off Script Labs](https://offscriptlabs.ai).
