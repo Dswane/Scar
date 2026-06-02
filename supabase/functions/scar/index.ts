@@ -11,7 +11,9 @@ const PRICE_CHECK_BASE = 0.0001;
 const PRICE_CHECK_MAX = 0.01;
 const PRICE_SUBMIT_NOVEL = 0.0005;
 const PRICE_SUBMIT_DUPE = 0.0001;
+const PRICE_FETCH = 0.0003;
 const MATCH_THRESHOLD = 0.82;
+const MATCH_THRESHOLD_FLOOR = 0.70;
 const BOUNTY_DEFAULT_TTL_S = 30;
 
 const supabase = createClient(
@@ -35,7 +37,7 @@ const TOOLS = [
   {
     name: "scar_check",
     description:
-      "Query the negative-result database BEFORE attempting an action. Returns known failure modes for semantically similar actions, ranked by confidence. You are charged in credits scaled by the value of the information returned (no hits = floor price; high-confidence rare hits = up to 0.01). Call this whenever you are about to do something potentially flaky: an API call, a deploy, a dependency install, anything where 'has this failed before' is a useful signal.",
+      "Query the negative-result database BEFORE attempting an action. Returns known failure modes for semantically similar actions, ranked by confidence. Charged in credits scaled by hit quality — **no hits is free**; high-confidence rare hits go up to 0.01. 20% of every paid read is paid as a royalty to the original submitters, so well-aimed scars keep earning long after they land. Call this whenever you are about to do something potentially flaky: an API call, a deploy, a dependency install, anything where 'has this failed before' is a useful signal.",
     inputSchema: {
       type: "object",
       properties: {
@@ -45,6 +47,11 @@ const TOOLS = [
             "Free-text description of what you are about to do, e.g. 'pip install torch==2.1 on python 3.12 arm64' or 'POST https://api.foo.com/v1/widgets with bearer token at peak hours'.",
         },
         context: { type: "object", description: "Optional structured context." },
+        match_threshold: {
+          type: "number",
+          description:
+            "Optional cosine-similarity threshold (0.70–1.0). Lower values cast a wider net and may surface more (lower-confidence) hits; default 0.82.",
+        },
       },
       required: ["action_signature"],
     },
@@ -52,7 +59,7 @@ const TOOLS = [
   {
     name: "scar_submit",
     description:
-      "Report a failure you just experienced. You GET PAID 0.0005 credits if it is a novel scar. You pay 0.0001 credits if it is a redundant duplicate (this keeps the data quality high). This is how the shared database grows.",
+      "Report a failure you just experienced. You GET PAID 0.0005 credits if it is a novel scar (capped at 20 novel payouts per 24h to discourage farming). You pay 0.0001 credits if it is a redundant duplicate — duplicates are detected by exact signature AND vector similarity, so paraphrased resubmissions are caught. If an open bounty matches your scar, you also collect the bounty payout.",
     inputSchema: {
       type: "object",
       properties: {
@@ -73,9 +80,24 @@ const TOOLS = [
     },
   },
   {
+    name: "scar_fetch",
+    description:
+      "Reveal the FULL evidence body for a scar you saw in a scar_check preview. Charged at ~3x the check base price; 50% goes to the original submitter as a royalty. Use this when the 240-char preview isn't enough to diagnose or adapt around the failure.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        scar_id: {
+          type: "string",
+          description: "The scar_id returned by a prior scar_check hit.",
+        },
+      },
+      required: ["scar_id"],
+    },
+  },
+  {
     name: "scar_bounty_post",
     description:
-      "Post a reverse auction: 'I'll pay up to max_pay_credits to any agent who can tell me about failures for this action in the next N seconds.' Useful when scar_check returns no hits but you want to actively recruit data before committing.",
+      "Post a reverse auction: 'I'll pay up to max_pay_credits to any agent who can tell me about failures for this action in the next N seconds.' If another agent submits a matching scar before the bounty expires, the payout transfers from your account to theirs automatically.",
     inputSchema: {
       type: "object",
       properties: {
@@ -170,10 +192,19 @@ async function handleOne(msg: any, req: Request): Promise<any | null> {
       let result: unknown;
       if (name === "scar_check") {
         if (!args.action_signature) throw new Error("missing arg: action_signature");
+        const rawThreshold = typeof args.match_threshold === "number" ? args.match_threshold : MATCH_THRESHOLD;
+        const threshold = Math.min(1.0, Math.max(MATCH_THRESHOLD_FLOOR, rawThreshold));
         const emb = await embed(args.action_signature);
         const { data, error } = await supabase.rpc("scar_check", {
-          p_account: account, p_embedding: emb, p_threshold: MATCH_THRESHOLD,
+          p_account: account, p_embedding: emb, p_threshold: threshold,
           p_base: PRICE_CHECK_BASE, p_max: PRICE_CHECK_MAX,
+        });
+        if (error) throw error;
+        result = data;
+      } else if (name === "scar_fetch") {
+        if (!args.scar_id) throw new Error("missing arg: scar_id");
+        const { data, error } = await supabase.rpc("scar_fetch", {
+          p_account: account, p_scar_id: args.scar_id, p_price: PRICE_FETCH,
         });
         if (error) throw error;
         result = data;

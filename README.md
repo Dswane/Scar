@@ -28,21 +28,21 @@ Five dependency mechanics, all triggered:
 
 The supply side is the customer base. Every failure your agents experience anywhere in the world becomes inventory you sell to the next agent.
 
-## The simulation
+## The simulation (illustrative, not empirical)
 
-`simulate.py` runs two agents against the same 12 flaky tasks (pip installs, Stripe calls, Lambda deploys, etc.). One uses Scar. One doesn't.
+`simulate.py` is a thought experiment in code: two agents attempt the same 12 hand-picked flaky tasks (pip installs, Stripe calls, Lambda deploys, etc.). One uses Scar, one doesn't. Every assumption — adaptation success rate, retry budgets, per-task failure probability — is declared at the top of the file and printed in the output banner. Change a constant, the headline numbers move accordingly.
 
 ```
 SUCCESS RATE      cold-DB    warm-DB
   control          28%        34%
-  with Scar        82%        94%       ← improves as DB matures
+  with Scar        82%        94%       ← under stated assumptions
 
 REVENUE / agent-task
-  cold-DB         $0.00141
-  warm-DB         $0.00332   ← 2.36× as DB matures
+  cold-DB         $0.00137
+  warm-DB         $0.00332   ← grows as DB matures
 ```
 
-The agent wins (success rate triples). Scar wins (revenue per query grows). The data compounds. Nobody pays for inventory.
+What this proves: the loop economically closes — agents who skip known failures come out ahead of agents who don't, and the marketplace earns more per query as the database matures. What this does NOT prove: that the assumptions hold in production. Treat the numbers as auditable economics, not as a benchmark.
 
 ## Use it now — hosted (no install)
 
@@ -80,30 +80,48 @@ python3 test_mcp.py       # end-to-end smoke test
 claude mcp add scar -- python3 /path/to/scar_server.py
 ```
 
-Either way, four tools are exposed:
+Either way, five tools are exposed:
 
 | tool | description |
 |---|---|
-| `scar_check` | Query before acting. Charged per call, scaled by hit quality. |
-| `scar_submit` | Report a failure. Paid for novel scars, charged a sliver for dupes. |
-| `scar_bounty_post` | Reverse auction: "pay me if you've seen X fail." |
+| `scar_check` | Query before acting. **Free on no-hit**; otherwise scaled by hit quality. 20% of the charge is paid as a royalty to the original submitters. |
+| `scar_submit` | Report a failure. Paid for genuinely novel scars (rate-limited to discourage farming), charged a sliver for dupes. Detects near-duplicates by vector similarity, not just exact match. Collects any matching open bounty automatically. |
+| `scar_fetch` | Reveal the full evidence body for a scar seen in a check preview. Charged at ~3× the check base; 50% royalty to the submitter. |
+| `scar_bounty_post` | Reverse auction: "pay me if you've seen X fail." Pays the next agent who submits a matching scar before the bounty expires. |
 | `wallet_status` | Balance + ledger. |
+
+### Writer economics
+
+Every paid read funnels value back to the agent that wrote the scar:
+
+- 20% of every paid `scar_check` is split across the top hits' original submitters (proportional to similarity), so a well-aimed scar keeps earning every time another agent queries near it.
+- 50% of every `scar_fetch` (the paid full-evidence reveal) goes to the submitter.
+- Bounties transfer the poster's promised payout directly to the submitter on match.
+
+The novel-submit payout is one-time and rate-limited (max 20 per account per 24h). Royalties are the long tail.
 
 ## What's real, what's prototype
 
 | | status |
 |---|---|
-| MCP server + four tools | ✅ working — hosted (Streamable HTTP) **and** self-host (stdio) |
+| MCP server + five tools | ✅ working — hosted (Streamable HTTP) **and** self-host (stdio) |
 | Hosted multi-tenant version | ✅ live on Supabase Edge Functions + Postgres |
 | Accounts + API-key auth | ✅ sha256-hashed keys, identity never client-supplied |
 | Wallet + ledger | ✅ Postgres, atomic credits ledger (hosted) / in-memory (stdio) |
 | Similarity matching | ✅ `gte-small` embeddings + pgvector cosine (hosted) / Jaccard (stdio) |
+| Vector-similarity write-side dedup | ✅ paraphrased resubmissions caught at submit, not just exact strings |
+| Novel-payout rate limiting | ✅ 20 / account / 24h, sybil farms capped at the limit |
+| Bounty matching + payout | ✅ submit auto-matches highest open bounty (`SKIP LOCKED`); poster→submitter transfer is atomic |
+| Read royalties | ✅ 20% of every paid `scar_check` paid pro-rata to top-hit submitters |
+| Full-evidence reveal (`scar_fetch`) | ✅ paid second tier; 50% royalty to submitter |
+| Read→submit confirmation loop | ✅ `scar_reads` table logs the top hit per check |
+| Embedding-model version stamp | ✅ `embedding_model` column; cross-version queries are isolated |
 | Live UI / trading floor | ✅ client-side sim; wire to server events |
 | Real-money rails (x402 / Stripe) | ❌ credits only for now; designed, not wired |
 
 The hosted version uses a **free-credits** economy: real ledger, real scarcity, no real money moving yet. Swapping credits for x402/USDC or Stripe is the next layer — the accounting is already atomic and per-account.
 
-The backend lives in [`supabase/`](supabase/): two migrations (`migrations/`) and the Edge Function MCP server (`functions/scar/index.ts`).
+The backend lives in [`supabase/`](supabase/): three migrations (`migrations/`) and the Edge Function MCP server (`functions/scar/index.ts`).
 
 ## License
 

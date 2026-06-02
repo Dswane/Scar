@@ -1,19 +1,19 @@
 """
-Scar Simulator — proves the addiction loop with numbers.
+Scar Simulator — ILLUSTRATIVE model of the addiction loop.
 
-Two agents attempt the same set of flaky tasks 50 times each:
-  - control_agent:  no Scar. Takes its lumps.
-  - scar_agent:     queries Scar before acting, submits scars on failure.
+This is a thought experiment in code, not an empirical benchmark. It shows
+that the loop mechanically closes under stated assumptions; it does not show
+that the assumptions hold against real-world workloads. The headline numbers
+move directly with the knobs declared below — treat them as a sanity check
+of the economics, not as performance evidence.
 
-We measure:
-  - task success rate
-  - wall-clock cost (each retry costs simulated time)
-  - dollars spent on Scar
-  - dollars earned from Scar (for novel scar submissions)
-  - net cost / task
+Two agents attempt the same fixed set of flaky tasks 50 times each:
+  - control_agent:  no Scar. Tries, retries up to 2x on failure.
+  - scar_agent:     queries Scar before acting, submits scars on failure,
+                    and "adapts away" from a known failure with probability
+                    SCAR_ADAPTATION_SUCCESS_RATE (declared below).
 
-The whole point: the scar_agent's net cost per successful task is lower,
-*and* the gap widens as the database grows. That's the loop.
+We measure success rate, simulated wall-clock cost, and Scar P&L.
 """
 
 from __future__ import annotations
@@ -23,6 +23,20 @@ import time
 from dataclasses import dataclass, field
 
 from scar_server import STORE  # reuse the in-memory store directly
+
+# ---------------------------------------------------------------------------
+# DECLARED ASSUMPTIONS — every number below was picked by hand. Anyone
+# evaluating the simulation should change these and re-run.
+# ---------------------------------------------------------------------------
+
+SCAR_ADAPTATION_SUCCESS_RATE = 0.92  # P(scar_agent succeeds | high-confidence hit seen)
+KNOWN_HIT_CONFIDENCE = 0.9           # confidence threshold to treat a hit as "known"
+KNOWN_HIT_MIN_CONFIRMATIONS = 1      # confirmations required to trust a hit
+CONTROL_RETRY_BUDGET = 3             # control agent attempts per task before giving up
+SCAR_RETRY_BUDGET = 3                # scar agent attempts per task if adaptation fails
+
+# COST_PER_FAILURE_SECONDS and SECONDS_TO_USDC live below as code constants.
+# `p_fail` per task is also hand-picked in the TASKS list.
 
 
 # ---------------------------------------------------------------------------
@@ -134,12 +148,12 @@ def attempt(task: dict) -> tuple[bool, str | None, str | None]:
 
 
 def run_control(n_tasks: int) -> AgentRun:
-    """Naive agent: just tries, retries up to 2x on failure."""
+    """Naive agent: just tries, retries on failure."""
     run = AgentRun(name="control")
     for _ in range(n_tasks):
         task = random.choice(TASKS)
         run.attempts += 1
-        for retry in range(3):
+        for retry in range(CONTROL_RETRY_BUDGET):
             ok, _fm, _ev = attempt(task)
             if ok:
                 run.successes += 1
@@ -172,16 +186,20 @@ def run_scar(n_tasks: int, agent_id: str = "scar_agent_demo") -> AgentRun:
         #    mode, treat it as avoided (the agent adapts: different key,
         #    different config, different time, whatever).
         hits = check.get("hits", []) if check.get("ok") else []
-        known = any(h["confidence"] >= 0.9 and h["confirmations"] >= 1 for h in hits)
+        known = any(
+            h["confidence"] >= KNOWN_HIT_CONFIDENCE
+            and h["confirmations"] >= KNOWN_HIT_MIN_CONFIRMATIONS
+            for h in hits
+        )
         if known:
-            # Agent adapts and succeeds with high probability
-            if random.random() < 0.92:
+            # Agent "adapts" away from the known failure. The success rate of
+            # adaptation is an *assumption* — see banner constants above.
+            if random.random() < SCAR_ADAPTATION_SUCCESS_RATE:
                 run.successes += 1
                 continue
-            # adaptation failed -> fall through to attempt
 
         # 3. Attempt (with retries) and submit on failure
-        for retry in range(3):
+        for retry in range(SCAR_RETRY_BUDGET):
             ok, fm, ev = attempt(task)
             if ok:
                 run.successes += 1
@@ -223,6 +241,19 @@ def print_run(run: AgentRun) -> None:
 
 def main() -> None:
     random.seed(7)
+
+    print("=" * 72)
+    print("ILLUSTRATIVE SIMULATION — the numbers below are products of the")
+    print("declared assumptions, not an empirical benchmark.")
+    print("=" * 72)
+    print(f"  SCAR_ADAPTATION_SUCCESS_RATE    = {SCAR_ADAPTATION_SUCCESS_RATE}")
+    print(f"  KNOWN_HIT_CONFIDENCE            = {KNOWN_HIT_CONFIDENCE}")
+    print(f"  KNOWN_HIT_MIN_CONFIRMATIONS     = {KNOWN_HIT_MIN_CONFIRMATIONS}")
+    print(f"  CONTROL_RETRY_BUDGET            = {CONTROL_RETRY_BUDGET}")
+    print(f"  SCAR_RETRY_BUDGET               = {SCAR_RETRY_BUDGET}")
+    print(f"  COST_PER_FAILURE_SECONDS        = {COST_PER_FAILURE_SECONDS}")
+    print(f"  p_fail per task: hand-picked in TASKS (see source)")
+    print()
 
     # --- Phase 1: cold database. Scar agent has no prior data to draw on.
     print("=" * 72)
@@ -273,14 +304,17 @@ def main() -> None:
     print()
     print(f"  TOTAL SCARS IN DB:        {len(STORE.scars)}")
     print()
-    print("  The loop:")
+    print("  The loop (under the declared assumptions):")
     print("    1. Agents fail. They submit scars (we pay them peanuts).")
     print("    2. The DB matures. Hits get higher-confidence.")
     print("    3. We charge MORE for those higher-confidence hits.")
     print("    4. Agents still net positive because skipping a failure is")
-    print("       worth way more than the $0.003 they pay us.")
+    print("       worth way more than the per-query fee.")
     print("    5. Removing Scar = measurable regression in agent success.")
-    print("       Principals see this in their metrics. They never let go.")
+    print()
+    print("  Reality check: change the constants at the top of this file,")
+    print("  re-run, and the loop bends accordingly. The point of the model")
+    print("  is to make the economics auditable, not to claim performance.")
 
 
 if __name__ == "__main__":
