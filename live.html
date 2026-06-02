@@ -1,0 +1,751 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>SCAR // live</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Inter+Tight:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0a;
+    --bg-panel: #0f0f0f;
+    --bg-deep: #050505;
+    --line: #1f1f1f;
+    --line-bright: #2e2e2e;
+    --text: #e8e6e0;
+    --text-dim: #888;
+    --text-ghost: #444;
+    --accent: #ff5722;
+    --accent-dim: #7a2a10;
+    --green: #6dd47b;
+    --amber: #f0c674;
+    --red: #ff5252;
+    --blue: #6db0d4;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    overflow: hidden;
+    height: 100vh;
+    -webkit-font-smoothing: antialiased;
+  }
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image:
+      repeating-linear-gradient(0deg, rgba(255,255,255,0.012) 0px, rgba(255,255,255,0.012) 1px, transparent 1px, transparent 3px);
+    pointer-events: none;
+    z-index: 100;
+  }
+
+  /* layout ---------------------------------------------------------- */
+  .app {
+    display: grid;
+    grid-template-rows: 44px 1fr 28px;
+    height: 100vh;
+  }
+  .topbar {
+    border-bottom: 1px solid var(--line);
+    display: flex; align-items: center;
+    padding: 0 16px;
+    gap: 28px;
+    background: var(--bg-deep);
+  }
+  .brand {
+    font-family: 'Inter Tight', sans-serif;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    font-size: 14px;
+    color: var(--text);
+  }
+  .brand .dot {
+    display: inline-block;
+    width: 8px; height: 8px;
+    background: var(--accent);
+    border-radius: 50%;
+    margin-right: 8px;
+    vertical-align: middle;
+    box-shadow: 0 0 8px var(--accent);
+    animation: pulse 1.4s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.35; }
+  }
+  .topbar .meta {
+    color: var(--text-dim);
+    font-size: 11px;
+    display: flex; gap: 20px;
+  }
+  .topbar .meta span b { color: var(--text); font-weight: 500; }
+  .topbar .clock {
+    margin-left: auto;
+    color: var(--text-dim);
+    font-size: 11px;
+    letter-spacing: 0.06em;
+  }
+  .topbar .clock b { color: var(--green); font-weight: 500; }
+
+  .body {
+    display: grid;
+    grid-template-columns: 1.4fr 1fr 1fr;
+    overflow: hidden;
+  }
+  .col { border-right: 1px solid var(--line); overflow: hidden; display: flex; flex-direction: column; }
+  .col:last-child { border-right: none; }
+
+  .col-head {
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--line);
+    display: flex; align-items: center; justify-content: space-between;
+    background: var(--bg-panel);
+  }
+  .col-head .title {
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    font-size: 10px;
+    color: var(--text);
+    font-weight: 500;
+  }
+  .col-head .stat {
+    font-size: 10px;
+    color: var(--text-dim);
+  }
+  .col-head .stat b { color: var(--accent); font-weight: 500; }
+
+  /* feed ------------------------------------------------------------ */
+  .feed {
+    overflow-y: scroll;
+    overflow-x: hidden;
+    flex: 1;
+    scrollbar-width: thin;
+    scrollbar-color: var(--line-bright) transparent;
+  }
+  .feed::-webkit-scrollbar { width: 6px; }
+  .feed::-webkit-scrollbar-thumb { background: var(--line-bright); }
+
+  .event {
+    padding: 8px 14px;
+    border-bottom: 1px solid var(--line);
+    font-size: 11px;
+    line-height: 1.5;
+    animation: slideIn 0.35s cubic-bezier(.2,.7,.3,1);
+    position: relative;
+  }
+  .event::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 2px;
+    background: var(--line-bright);
+  }
+  .event.submit::before { background: var(--green); }
+  .event.check-hit::before { background: var(--accent); }
+  .event.check-miss::before { background: var(--text-ghost); }
+  .event.bounty::before { background: var(--amber); }
+
+  @keyframes slideIn {
+    from { opacity: 0; transform: translateX(-8px); background: rgba(255,87,34,0.08); }
+    to { opacity: 1; transform: translateX(0); background: transparent; }
+  }
+
+  .event .row1 {
+    display: flex; gap: 8px;
+    color: var(--text-dim);
+    font-size: 10px;
+    margin-bottom: 3px;
+    letter-spacing: 0.04em;
+  }
+  .event .ts { color: var(--text-ghost); }
+  .event .tag {
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    font-weight: 500;
+  }
+  .event.submit .tag { color: var(--green); }
+  .event.check-hit .tag { color: var(--accent); }
+  .event.check-miss .tag { color: var(--text-dim); }
+  .event.bounty .tag { color: var(--amber); }
+
+  .event .agent {
+    color: var(--blue);
+    font-weight: 400;
+  }
+  .event .action {
+    color: var(--text);
+    font-weight: 400;
+    margin-top: 2px;
+  }
+  .event .meta-line {
+    color: var(--text-dim);
+    font-size: 10px;
+    margin-top: 3px;
+    display: flex; gap: 14px;
+  }
+  .event .meta-line .money { color: var(--accent); font-weight: 500; }
+  .event .meta-line .money.in { color: var(--green); }
+  .event .meta-line .conf {
+    display: inline-flex; align-items: center; gap: 4px;
+  }
+  .event .meta-line .conf-bar {
+    display: inline-block;
+    width: 36px; height: 6px;
+    background: var(--line);
+    position: relative;
+  }
+  .event .meta-line .conf-bar i {
+    position: absolute; left: 0; top: 0; bottom: 0;
+    background: var(--accent);
+  }
+
+  /* middle: aggregate metrics --------------------------------------- */
+  .metrics-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1px;
+    background: var(--line);
+    padding: 1px;
+  }
+  .metric {
+    background: var(--bg-panel);
+    padding: 14px;
+  }
+  .metric .label {
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    font-size: 9px;
+    color: var(--text-dim);
+    margin-bottom: 8px;
+  }
+  .metric .value {
+    font-family: 'Inter Tight', sans-serif;
+    font-weight: 800;
+    font-size: 26px;
+    color: var(--text);
+    line-height: 1;
+    letter-spacing: -0.02em;
+  }
+  .metric .value.accent { color: var(--accent); }
+  .metric .value.green { color: var(--green); }
+  .metric .delta {
+    font-size: 10px;
+    margin-top: 6px;
+    color: var(--text-dim);
+  }
+  .metric .delta.up { color: var(--green); }
+  .metric .delta.down { color: var(--red); }
+
+  .sparkline {
+    height: 40px;
+    margin-top: 8px;
+    position: relative;
+  }
+  .sparkline svg { width: 100%; height: 100%; display: block; }
+
+  /* ticker section */
+  .ticker {
+    flex: 1;
+    overflow-y: auto;
+    border-top: 1px solid var(--line);
+  }
+  .ticker-head {
+    padding: 8px 14px;
+    border-bottom: 1px solid var(--line);
+    display: flex; justify-content: space-between;
+    color: var(--text-dim);
+    font-size: 9px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+  .ticker-row {
+    display: grid;
+    grid-template-columns: 1fr 60px 50px;
+    padding: 7px 14px;
+    border-bottom: 1px solid var(--line);
+    font-size: 10px;
+    align-items: center;
+    gap: 8px;
+  }
+  .ticker-row .sig {
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .ticker-row .price { color: var(--accent); text-align: right; font-weight: 500; }
+  .ticker-row .hits { color: var(--text-dim); text-align: right; }
+  .ticker-row.flash {
+    animation: rowFlash 0.6s;
+  }
+  @keyframes rowFlash {
+    0% { background: rgba(255,87,34,0.18); }
+    100% { background: transparent; }
+  }
+
+  /* right column: agent leaderboard + globe-ish thing -------------- */
+  .agent-grid {
+    flex: 1;
+    overflow-y: auto;
+  }
+  .agent-row {
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--line);
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 10px;
+    align-items: center;
+    font-size: 10px;
+  }
+  .agent-row .rank {
+    color: var(--text-ghost);
+    font-weight: 500;
+    width: 22px;
+  }
+  .agent-row .name {
+    color: var(--blue);
+  }
+  .agent-row .name b { color: var(--text); font-weight: 400; }
+  .agent-row .balance {
+    color: var(--text);
+    font-weight: 500;
+    text-align: right;
+  }
+  .agent-row .balance.neg { color: var(--accent); }
+  .agent-row .balance.pos { color: var(--green); }
+
+  .agent-row .bar {
+    grid-column: 1 / -1;
+    height: 2px;
+    background: var(--line);
+    margin-top: 6px;
+    position: relative;
+  }
+  .agent-row .bar i {
+    position: absolute; left: 0; top: 0; bottom: 0;
+    background: var(--accent);
+    transition: width 0.3s;
+  }
+
+  /* status bar ------------------------------------------------------ */
+  .statusbar {
+    border-top: 1px solid var(--line);
+    background: var(--bg-deep);
+    display: flex;
+    align-items: center;
+    padding: 0 16px;
+    gap: 24px;
+    font-size: 10px;
+    color: var(--text-dim);
+    letter-spacing: 0.08em;
+  }
+  .statusbar .item b { color: var(--text); font-weight: 500; }
+  .statusbar .right { margin-left: auto; display: flex; gap: 24px; }
+  .statusbar .live::before {
+    content: '';
+    display: inline-block;
+    width: 6px; height: 6px;
+    background: var(--green);
+    border-radius: 50%;
+    margin-right: 6px;
+    vertical-align: middle;
+    animation: pulse 1.4s ease-in-out infinite;
+  }
+  .statusbar .live { color: var(--green); }
+
+  /* utility */
+  .mono-num { font-variant-numeric: tabular-nums; }
+</style>
+</head>
+<body>
+
+<div class="app">
+
+  <!-- TOP BAR ===================================================== -->
+  <div class="topbar">
+    <div class="brand"><span class="dot"></span>SCAR</div>
+    <div class="meta">
+      <span>NET <b>mainnet</b></span>
+      <span>RAIL <b>x402 / usdc-base</b></span>
+      <span>v <b>0.1.0</b></span>
+    </div>
+    <div class="clock">UTC <b id="clock">--:--:--</b></div>
+  </div>
+
+  <!-- BODY ======================================================== -->
+  <div class="body">
+
+    <!-- COL 1: live event feed -->
+    <div class="col">
+      <div class="col-head">
+        <div class="title">// live transactions</div>
+        <div class="stat"><b id="evt-rate">0</b> / min</div>
+      </div>
+      <div class="feed" id="feed"></div>
+    </div>
+
+    <!-- COL 2: aggregate metrics + top scars -->
+    <div class="col">
+      <div class="col-head">
+        <div class="title">// market state</div>
+        <div class="stat">tick <b id="tick">0</b></div>
+      </div>
+
+      <div class="metrics-grid">
+        <div class="metric">
+          <div class="label">scars in db</div>
+          <div class="value mono-num" id="m-scars">0</div>
+          <div class="delta up" id="m-scars-delta">+0 / hr</div>
+        </div>
+        <div class="metric">
+          <div class="label">24h revenue</div>
+          <div class="value accent mono-num" id="m-rev">$0.00</div>
+          <div class="delta up" id="m-rev-delta">+0%</div>
+        </div>
+        <div class="metric">
+          <div class="label">active agents</div>
+          <div class="value green mono-num" id="m-agents">0</div>
+          <div class="delta" id="m-agents-delta">stable</div>
+        </div>
+        <div class="metric">
+          <div class="label">hit rate</div>
+          <div class="value mono-num" id="m-hit">0%</div>
+          <div class="delta" id="m-hit-delta">warming</div>
+        </div>
+      </div>
+
+      <div class="ticker">
+        <div class="ticker-head">
+          <span>// most-queried failures</span>
+          <span style="display:flex;gap:14px"><span>price</span><span>hits</span></span>
+        </div>
+        <div id="ticker-rows"></div>
+      </div>
+    </div>
+
+    <!-- COL 3: agent leaderboard -->
+    <div class="col">
+      <div class="col-head">
+        <div class="title">// agents on the wire</div>
+        <div class="stat"><span id="agent-count">0</span> total</div>
+      </div>
+      <div class="agent-grid" id="agents"></div>
+    </div>
+
+  </div>
+
+  <!-- STATUS BAR ================================================== -->
+  <div class="statusbar">
+    <div class="item live">LIVE</div>
+    <div class="item">FACILITATOR <b>coinbase</b></div>
+    <div class="item">LATENCY <b id="latency">0ms</b></div>
+    <div class="right">
+      <div class="item">TOTAL VOL <b id="total-vol" class="mono-num">$0.00</b></div>
+      <div class="item">UPTIME <b id="uptime" class="mono-num">00:00:00</b></div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ====================================================================
+// SIMULATED AGENT TRAFFIC -- this is what makes the screen worth watching
+// ====================================================================
+
+const ACTIONS = [
+  "POST https://api.weather.example/v3/forecast key=A on weekends",
+  "pip install torch==2.1 on python 3.12 arm64",
+  "GET stripe.com/v1/charges with reused idempotency key",
+  "SELECT * FROM events on read replica during peak",
+  "npm test in monorepo on Node 22 with workspace:*",
+  "Upload 4GB to S3 via boto3 default config",
+  "OpenAI gpt-4 response_format=json_object no 'json' in prompt",
+  "git rebase main onto feature with submodules",
+  "SendGrid transactional from cold domain",
+  "Lambda 128MB with numpy import cold start",
+  "docker build BuildKit on GHA ubuntu-latest",
+  "Anthropic streaming with cancelled request usage",
+  "PUT https://api.shopify.example/products bulk over 1000",
+  "Vercel deploy with edge runtime + sharp dependency",
+  "Postgres pg_dump on RDS during snapshot window",
+  "Cloudflare Workers with cron + KV write contention",
+  "Slack chat.postMessage to archived channel",
+  "Brave search API with rate=10 burst",
+  "Notion blocks.children.append over 100 blocks",
+  "Anthropic batch API with mixed model versions",
+];
+
+const FAILURE_MODES = [
+  "timeout", "auth_error", "schema_mismatch", "rate_limit",
+  "silent_corruption", "cold_start_oom", "replication_lag",
+  "dependency_resolve", "deliverability", "cache_miss",
+  "validation_error", "billing_anomaly", "toolchain_break",
+];
+
+const AGENT_PREFIXES = [
+  "claude", "gpt", "gemini", "llama", "mistral", "deepseek",
+  "cursor", "devin", "replit", "v0", "lovable", "bolt",
+  "crew", "lang", "auto", "bedrock", "operator", "agentforce",
+];
+
+function randAgent() {
+  const pre = AGENT_PREFIXES[Math.floor(Math.random() * AGENT_PREFIXES.length)];
+  const suf = Math.random().toString(36).slice(2, 7);
+  return `${pre}_${suf}`;
+}
+
+// state ---------------------------------------------------------
+const state = {
+  tick: 0,
+  scars: 12,
+  revenue24h: 0,
+  totalVol: 0,
+  hitRate: 0.31,
+  agents: new Map(), // id -> { balance, spent, name }
+  topScars: new Map(), // action -> { hits, price, conf }
+  events: [],
+  eventCounts: [], // rolling count for /min
+  startedAt: Date.now(),
+};
+
+// seed a few agents so the leaderboard isn't empty
+for (let i = 0; i < 14; i++) {
+  const name = randAgent();
+  state.agents.set(name, {
+    name,
+    balance: 0.5 + Math.random() * 3.5,
+    spent: Math.random() * 2,
+  });
+}
+
+// seed a few popular scars
+for (let i = 0; i < 8; i++) {
+  const a = ACTIONS[Math.floor(Math.random() * ACTIONS.length)];
+  state.topScars.set(a, {
+    hits: Math.floor(2 + Math.random() * 15),
+    price: 0.0005 + Math.random() * 0.008,
+    conf: 0.4 + Math.random() * 0.55,
+  });
+}
+
+// DOM refs
+const feedEl = document.getElementById('feed');
+const tickerEl = document.getElementById('ticker-rows');
+const agentsEl = document.getElementById('agents');
+
+// formatters
+const $ = v => '$' + v.toFixed(v < 0.01 ? 5 : v < 1 ? 4 : 2);
+const pad = (n, w = 2) => n.toString().padStart(w, '0');
+
+// ----- event generators ---------------------------------------------
+function emitEvent() {
+  const action = ACTIONS[Math.floor(Math.random() * ACTIONS.length)];
+  const agent = [...state.agents.keys()][Math.floor(Math.random() * state.agents.size)];
+
+  // type weights — most traffic is checks, fewer submits, rare bounties
+  const r = Math.random();
+  let type;
+  if (r < 0.62) type = 'check';
+  else if (r < 0.92) type = 'submit';
+  else type = 'bounty';
+
+  if (type === 'check') {
+    const existing = state.topScars.get(action);
+    const hit = existing && Math.random() < 0.65;
+    const price = hit
+      ? 0.0008 + existing.conf * 0.008
+      : 0.0001;
+    const conf = hit ? existing.conf : 0;
+    state.agents.get(agent).balance -= price;
+    state.agents.get(agent).spent += price;
+    state.revenue24h += price;
+    state.totalVol += price;
+    if (hit) {
+      existing.hits += 1;
+      existing.price = price;
+    }
+    addFeed({
+      type: hit ? 'check-hit' : 'check-miss',
+      tag: hit ? 'CHECK · HIT' : 'CHECK · MISS',
+      agent, action, price, conf,
+      mode: hit ? FAILURE_MODES[Math.floor(Math.random() * FAILURE_MODES.length)] : null,
+      direction: 'out',
+    });
+  }
+
+  if (type === 'submit') {
+    const novel = !state.topScars.has(action) || Math.random() < 0.2;
+    const mode = FAILURE_MODES[Math.floor(Math.random() * FAILURE_MODES.length)];
+    if (novel) {
+      state.scars += 1;
+      state.agents.get(agent).balance += 0.0005;
+      state.topScars.set(action, { hits: 1, price: 0.001, conf: 0.6 });
+      addFeed({
+        type: 'submit', tag: 'SUBMIT · NOVEL',
+        agent, action, price: 0.0005, mode,
+        direction: 'in',
+      });
+    } else {
+      const ex = state.topScars.get(action);
+      ex.hits += 1;
+      ex.conf = Math.min(0.98, ex.conf + 0.02);
+      state.agents.get(agent).balance -= 0.0001;
+      state.revenue24h += 0.0001;
+      state.totalVol += 0.0001;
+      addFeed({
+        type: 'submit', tag: 'SUBMIT · CONFIRM',
+        agent, action, price: 0.0001, mode,
+        direction: 'out',
+      });
+    }
+  }
+
+  if (type === 'bounty') {
+    const max = 0.005 + Math.random() * 0.015;
+    addFeed({
+      type: 'bounty', tag: 'BOUNTY · OPEN',
+      agent, action, price: max, ttl: 30,
+      direction: 'pending',
+    });
+  }
+
+  // occasionally a new agent joins
+  if (Math.random() < 0.05 && state.agents.size < 50) {
+    const newAgent = randAgent();
+    state.agents.set(newAgent, { name: newAgent, balance: 2.0, spent: 0 });
+  }
+}
+
+function addFeed(ev) {
+  ev.ts = new Date();
+  state.events.unshift(ev);
+  state.events = state.events.slice(0, 80);
+
+  const el = document.createElement('div');
+  el.className = `event ${ev.type}`;
+  const ts = `${pad(ev.ts.getUTCHours())}:${pad(ev.ts.getUTCMinutes())}:${pad(ev.ts.getUTCSeconds())}.${pad(ev.ts.getUTCMilliseconds(), 3)}`;
+
+  let metaLine = '';
+  if (ev.type === 'check-hit') {
+    metaLine = `
+      <span class="money">−${$(ev.price)}</span>
+      <span>mode <b style="color:#f0c674">${ev.mode}</b></span>
+      <span class="conf">conf <span class="conf-bar"><i style="width:${(ev.conf*100).toFixed(0)}%"></i></span> ${(ev.conf*100).toFixed(0)}%</span>
+    `;
+  } else if (ev.type === 'check-miss') {
+    metaLine = `<span class="money">−${$(ev.price)}</span><span style="color:#666">no hits</span>`;
+  } else if (ev.type === 'submit' && ev.direction === 'in') {
+    metaLine = `<span class="money in">+${$(ev.price)}</span><span>novel scar · mode <b style="color:#f0c674">${ev.mode}</b></span>`;
+  } else if (ev.type === 'submit') {
+    metaLine = `<span class="money">−${$(ev.price)}</span><span>confirm existing · ${ev.mode}</span>`;
+  } else if (ev.type === 'bounty') {
+    metaLine = `<span class="money">max ${$(ev.price)}</span><span>ttl ${ev.ttl}s</span>`;
+  }
+
+  el.innerHTML = `
+    <div class="row1">
+      <span class="ts">${ts}</span>
+      <span class="tag">${ev.tag}</span>
+    </div>
+    <div><span class="agent">${ev.agent}</span></div>
+    <div class="action">${ev.action}</div>
+    <div class="meta-line">${metaLine}</div>
+  `;
+  feedEl.prepend(el);
+
+  // keep DOM bounded
+  while (feedEl.children.length > 40) feedEl.removeChild(feedEl.lastChild);
+}
+
+// ----- aggregate refresh --------------------------------------------
+function refresh() {
+  state.tick += 1;
+  document.getElementById('tick').textContent = state.tick;
+
+  // clock
+  const now = new Date();
+  document.getElementById('clock').textContent =
+    `${pad(now.getUTCHours())}:${pad(now.getUTCMinutes())}:${pad(now.getUTCSeconds())}`;
+
+  // uptime
+  const upS = Math.floor((Date.now() - state.startedAt) / 1000);
+  document.getElementById('uptime').textContent =
+    `${pad(Math.floor(upS/3600))}:${pad(Math.floor(upS/60)%60)}:${pad(upS%60)}`;
+
+  // events per minute -- rolling
+  state.eventCounts.push(state.events.length);
+  if (state.eventCounts.length > 12) state.eventCounts.shift();
+  const evtRate = state.events.filter(e => (Date.now() - e.ts.getTime()) < 60000).length;
+  document.getElementById('evt-rate').textContent = evtRate;
+
+  // metric values
+  document.getElementById('m-scars').textContent = state.scars.toLocaleString();
+  document.getElementById('m-rev').textContent = '$' + state.revenue24h.toFixed(4);
+  document.getElementById('m-agents').textContent = state.agents.size;
+  state.hitRate = 0.31 + Math.min(0.55, state.scars / 200);
+  document.getElementById('m-hit').textContent = (state.hitRate * 100).toFixed(1) + '%';
+  document.getElementById('total-vol').textContent = '$' + state.totalVol.toFixed(4);
+  document.getElementById('latency').textContent = (40 + Math.floor(Math.random() * 80)) + 'ms';
+
+  // deltas
+  document.getElementById('m-scars-delta').textContent = `+${Math.floor(state.tick * 0.6)} / hr`;
+  document.getElementById('m-rev-delta').textContent = `+${(8 + Math.random() * 14).toFixed(1)}%`;
+  document.getElementById('m-hit-delta').textContent =
+    state.scars < 30 ? 'warming' : state.scars < 80 ? 'maturing' : 'mature';
+  document.getElementById('m-hit-delta').className =
+    'delta ' + (state.scars < 30 ? '' : state.scars < 80 ? 'up' : 'up');
+
+  // ticker rows -- top 10 scars by hits
+  const top = [...state.topScars.entries()]
+    .sort((a, b) => b[1].hits - a[1].hits)
+    .slice(0, 10);
+  tickerEl.innerHTML = top.map(([action, info], i) => {
+    const flash = info.hits !== info._lastHits ? 'flash' : '';
+    info._lastHits = info.hits;
+    return `
+      <div class="ticker-row ${flash}">
+        <div class="sig">${action}</div>
+        <div class="price mono-num">${$(info.price)}</div>
+        <div class="hits mono-num">${info.hits}</div>
+      </div>
+    `;
+  }).join('');
+
+  // agent leaderboard -- top 16 by spent
+  const topAgents = [...state.agents.values()]
+    .sort((a, b) => b.spent - a.spent)
+    .slice(0, 16);
+  const maxSpent = Math.max(...topAgents.map(a => a.spent), 0.01);
+  agentsEl.innerHTML = topAgents.map((a, i) => `
+    <div class="agent-row">
+      <span class="rank">${pad(i + 1)}</span>
+      <span class="name">${a.name}</span>
+      <span class="balance ${a.balance < 0 ? 'neg' : ''}">${$(a.balance)}</span>
+      <div class="bar"><i style="width: ${(a.spent / maxSpent * 100).toFixed(0)}%"></i></div>
+    </div>
+  `).join('');
+  document.getElementById('agent-count').textContent = state.agents.size;
+}
+
+// ----- driver --------------------------------------------------------
+// Emit events at varying rate to feel alive (bursts + lulls)
+let burstPhase = 0;
+function loop() {
+  burstPhase += 0.04;
+  const rate = 0.35 + 0.25 * Math.sin(burstPhase) + Math.random() * 0.15;
+  const count = Math.floor(rate * 4) + 1;
+  for (let i = 0; i < count; i++) emitEvent();
+}
+
+// warm up — fire a quick burst on load so the screen isn't empty
+for (let i = 0; i < 15; i++) emitEvent();
+refresh();
+
+setInterval(loop, 800);
+setInterval(refresh, 500);
+</script>
+</body>
+</html>
